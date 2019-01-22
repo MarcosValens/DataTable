@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link rel="stylesheet" href="./css/style.css">
+    <!--DATA TABLES-->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.10.19/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/1.5.2/css/buttons.dataTables.min.css">
+    <!--FULL CALENDAR-->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.10.0/fullcalendar.min.css"
+          media="screen">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.10.0/fullcalendar.print.css"
+          media="print">
+    <!--SELECT2-->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/css/select2.min.css" rel="stylesheet"/>
+</head>
+<body>
+<select id="selector" name="state"></select>
+<div id="calendar" style="width: 50%"></div>
+<div id="table"></div>
+<!--JQUERY-->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<!--DATA TABLES-->
+<script src="https://cdn.datatables.net/1.10.19/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/1.5.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/1.5.2/js/buttons.flash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/vfs_fonts.js"></script>
+<script src="https://cdn.datatables.net/buttons/1.5.2/js/buttons.html5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/1.5.2/js/buttons.print.min.js"></script>
+<!--MOMENT.JS-->
+<script src="https://momentjs.com/downloads/moment-with-locales.min.js"></script>
+<!--FULL CALENDAR-->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.10.0/fullcalendar.min.js"></script>
+<!--SELECT 2-->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/js/select2.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.5/js/i18n/ca.js"></script>
+<script>
+    $(document).ready(function () {
+        moment.locale('ca')
+        var ahora1 = moment()
+        var haceUnAnio = ahora1.clone().subtract('1', 'year')
+        var fechas = []
+        while (ahora1 > haceUnAnio) {
+            fechas.push({
+                id: ahora1.format('YYYY-MM-DD'),
+                text: ahora1.format('dddd, DD MMMM YYYY')
+            })
+            ahora1.subtract(1, 'day')
+        }
+        $('#selector').select2({
+            language: "ca",
+            data: fechas
+        })
+        var url = 'https://api.nasa.gov/neo/rest/v1/feed'
+        $.ajax({
+            url: url,
+            method: 'GET',
+            data: {
+                start_date: '1985-09-16',
+                end_date: '1985-09-20',
+                api_key: '9ao3hAIJkj6GIi19sBUQuK7Ug6h4yLJAPo61Qh2V'
+            },
+            success: function (data) {
+                createTable(data)
+                $('#tableResults').DataTable({
+                    stateSave: true,
+                    dom: 'Bfrtip',
+                    buttons: [
+                        'copy', 'csv', 'excel', 'pdf', 'print'
+                    ],
+                    "columnDefs": [
+                        {"orderable": false, "searchable": false, "targets": 5}
+                    ],
+                    "language": {
+                        "url": "//cdn.datatables.net/plug-ins/9dcbecd42ad/i18n/Catalan.json"
+                    },
+                })
+                var asteroids = createAsteroids(data)
+                calendar(asteroids)
+            }
+        })
+        var ahora = moment()
+        var finCurso = moment('22/03/2019', 'DD/MM/YYYY')
+
+        console.log("faltan " + finCurso.diff(ahora, 'days') + " dias para acabar el curso")
+        console.log(ahora.format("ddd DD MMM HH:mm"))
+
+        function calendar(asteroids) {
+            var dateAst = moment('1985/09/01', 'YYYY/MM/DD')
+            $('#calendar').fullCalendar({
+                /*themeSystem: 'jquery-ui',*/
+                weekNumbers: true,
+                height: 650,
+                selectable: true,
+                dayClick: function (date) {
+                    console.log('clicked ' + date.format('DD/MM/YYYY'))
+                    $(this).css('background-color', 'red')
+                },
+                select: function (startDate, endDate) {
+                    console.log('selected ' + startDate.format('DD/MM/YYYY') + ' to ' + endDate.format('DD/MM/YYYY'))
+                },
+                customButtons: {
+                    addEventButton: {
+                        text: 'Añadir Evento...',
+                        click: function () {
+                            var dateStr = prompt('Introduce la fecha en formato DD/MM/YYYY')
+                            var nameStr = prompt('Nombre del evento')
+                            var date = moment(dateStr, "DD/MM/YYYY")
+                            console.log(date)
+
+                            if (date.isValid()) {
+                                $('#calendar').fullCalendar('renderEvent', {
+                                    title: nameStr,
+                                    start: date,
+                                    allDay: true
+                                })
+                            } else {
+                                alert('Fecha no valida')
+                            }
+                        }
+                    },
+                    Asteroides: {
+                        text: 'Asteroides',
+                        click: function () {
+                            $('#calendar').fullCalendar('gotoDate', dateAst)
+                        }
+                    }
+                },
+                header: {
+                    center: 'month,agendaWeek,listWeek,basicDay,agendaDay,addEventButton',
+                    right: 'prevYear,prev,today,next,nextYear,Asteroides',
+
+                },
+                firstDay: 1,
+                eventClick: function (calEvent) {
+                    /*console.log(calEvent.start._i)*/// <--variable private por convenio
+                    var s = moment(calEvent.start)
+                    console.log(s.format('DD-MM-YYYY HH:mm'))
+                }
+                ,
+                events: asteroids,
+                views: {
+                    basic: {
+                        // options apply to basicWeek and basicDay views
+                    },
+                    agenda: {
+                        // options apply to agendaWeek and agendaDay views
+                    },
+                    month: { // name of view
+                        titleFormat: 'DD,MM,YYYY'
+                    },
+                    week: {
+                        // options apply to basicWeek and agendaWeek views
+
+                    },
+                    day: {
+                        // options apply to basicDay and agendaDay views
+                    }
+                },
+
+            })
+        }
+    })
+    $('#selector').change(function () {
+        $('#calendar').fullCalendar('gotoDate', this.value)
+        selectedDate(this.value)
+    })
+
+    function selectedDate(fecha) {
+        var url = 'https://api.nasa.gov/neo/rest/v1/feed'
+        $.ajax({
+            url: url,
+            method: 'GET',
+            data: {
+                start_date: fecha,
+                end_date: fecha,
+                api_key: '9ao3hAIJkj6GIi19sBUQuK7Ug6h4yLJAPo61Qh2V'
+            },
+            success: function (data) {
+                createTable(data)
+                $('#tableResults').DataTable({
+                    stateSave: true,
+                    dom: 'Bfrtip',
+                    "columnDefs": [
+                        {"orderable": false, "searchable": false, "targets": 5}
+                    ],
+                    "language": {
+                        "url": "//cdn.datatables.net/plug-ins/9dcbecd42ad/i18n/Catalan.json"
+                    },
+                })
+                var asteroids = createAsteroids(data)
+                asteroids.forEach(function (asteroid) {
+                    $('#calendar').fullCalendar('renderEvent', {
+                        title: asteroid.title,
+                        start: asteroid.start,
+                        allDay: true
+                    })
+                })
+
+            }
+        })
+    }
+
+    function createAsteroids(data) {
+        var comets = []
+        for (date in data.near_earth_objects) {
+            var comet = data.near_earth_objects[date]
+            comet.forEach(function (comet) {
+                comets.push({
+                    title: comet.name,
+                    start: moment(date, 'YYYY-MM-DD'),
+                    allDay: true
+                })
+            })
+        }
+        return comets
+    }
+
+    function createTable(data) {
+        if ($("#tableResults_wrapper")) {
+            $("#tableResults_wrapper").remove()
+        }
+        var table = $("<table></table>")
+        table.attr('id', 'tableResults')
+        var th = $("<tr></tr>")
+        th.append("<th>Nombre Asteroide</th>")
+        th.append("<th>¿Puede ser peligroso?</th>")
+        th.append("<th>Diametro estimado (min - max) en metros</th>")
+        th.append("<th>Velocidad (Km/h)</th>")
+        th.append("<th>Distancia respecto a a la tierra (Km)</th>")
+        th.append("<th>Ficha</th>")
+        var thead = $("<thead></thead>").append(th)
+        table.append(thead)
+        var tbody = $("<tbody></tbody>").append(thead)
+        var dates = []
+        for (var property in data.near_earth_objects) {
+            dates.push(property)
+        }
+        var arrayAsteroids = []
+        dates.forEach(function (date) {
+            arrayAsteroids.push(data.near_earth_objects[date])
+        })
+        var asteroids = []
+        arrayAsteroids.forEach(function (day) {
+            day.forEach(function (asteroid) {
+                asteroids.push(asteroid)
+            })
+        })
+        asteroids.forEach(function (ast) {
+            var peligro = 'no'
+            if (ast.is_potentially_hazardous_asteroid === true) {
+                peligro = 'si'
+            }
+            var tr = $("<tr><td>" + ast.name + "</td><td>" + peligro + "</td><td>" + ast.estimated_diameter.meters.estimated_diameter_max + " - " + ast.estimated_diameter.meters.estimated_diameter_min + "</td><td>" + ast.close_approach_data[0].relative_velocity.kilometers_per_hour + "</td><td>" + ast.close_approach_data[0].miss_distance.kilometers + "</td><td><a href='" + ast.links.self + "'>Link</a></td></tr>")
+            tbody.append(tr)
+        })
+        table.append(tbody)
+        $('#table').append(table)
+    }
+</script>
+</body>
+</html>
+
